@@ -78,8 +78,7 @@ select FLOOR(390 + RAND() * 9999999) AS ma_gd FROM `giaodich` WHERE giaodich.id 
     else:
         ma_gd = 6868
     # cua_hang.tong_doanh_thu()
-    data = {'ma_giao_dich': ma_gd}
-    return data
+    return {'ma_giao_dich': ma_gd}
 
 
 @app.put("/giao_dich/{ma_giao_dich}")

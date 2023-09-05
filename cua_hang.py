@@ -1,9 +1,10 @@
-#
+import datetime
+
+now = datetime.datetime.now()
+year = now.year
+
 # def tong_doanh_thu():
-#    import datetime
-#
-#     now = datetime.datetime.now()
-#     year = now.year
+
 #
 #     month = now.month
 #     total_revenue = db.query(model.GiaoDich.ma_cuahang, func.sum(model.GiaoDich.so_tien)).filter(
