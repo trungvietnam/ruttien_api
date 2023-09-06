@@ -1,0 +1,3 @@
+chạy server:
+uvicorn api:app --reload
+
