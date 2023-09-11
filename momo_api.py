@@ -76,6 +76,8 @@ def check_giao_dich(token, ma_giao_dich):
 
 # hàm này chạy theo ngày, lấy doanh thu từ MoMo
 def lay_doanh_thu_tu_api():
+    import pdb
+    pdb.set_trace()
     doanh_thu_cuahang = []
     quan_id = config_ruttien.quan_config
     for quan in quan_id:
@@ -86,8 +88,12 @@ def lay_doanh_thu_tu_api():
         token = get_token(username, passwd)
         doanh_thu = tong_doanh_thu(token, merchan_id)
         doanh_thu = doanh_thu['totalSuccessAmount']
-        doanh_thu_cuahang.append({'cua_hang': quan_id[quan][0], 'doanh_thu': doanh_thu})
+        doanh_thu_cuahang.append(
+            {'cua_hang': quan, 'doanh_thu': doanh_thu,'qr_code_img':quan_id[quan][3] }
+            )
     # ketqua = momo_api.momo_api.get_token()
     print(doanh_thu_cuahang)
     with open('doanh_thu_cuahang.txt', 'w') as file:
         file.write(str(doanh_thu_cuahang))
+
+

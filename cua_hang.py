@@ -1,4 +1,4 @@
-#
+
 # def tong_doanh_thu():
 #    import datetime
 #
@@ -28,8 +28,9 @@
 #
 #
 #
-# def kiem_tra_ma_giao_dich(bang_chung_img):
-#
-#
-#     return None
-#
+
+
+
+
+
+    

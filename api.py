@@ -1,3 +1,5 @@
+import pydantic
+from typing import Annotated
 from datetime import datetime
 from typing import Union
 import uuid as uuid_pkg
@@ -6,10 +8,13 @@ from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
 from fastapi import Depends, FastAPI, HTTPException, status
-
-import database, model
-from sqlalchemy.orm import Session, sessionmaker
 import cua_hang
+import momo_api
+import libs
+
+import database
+import model
+from sqlalchemy.orm import Session, sessionmaker
 
 app = FastAPI()
 
@@ -23,8 +28,6 @@ def get_db():
 
 
 # model.Base.metadata.create_all()
-from typing import Annotated
-import pydantic
 
 
 class GiaoDichUpdate(BaseModel):
@@ -32,6 +35,7 @@ class GiaoDichUpdate(BaseModel):
     so_tien: int
     ma_giao_dich: str
     phi_thu: float
+
 
 class TrangThaiGDUpdate(BaseModel):
     trang_thai: str
@@ -46,7 +50,7 @@ class GiaoDichBase(BaseModel):
     stk_ngan_hang: str
     ma_cuahang: str
     bang_chung_img: str
-    trang_thai: str
+    trang_thai: str = "pending"
 
 
 @app.get("/")
@@ -58,8 +62,7 @@ async def read_root(db: Session = Depends(get_db)):
 @app.get("/update_doanhthu")
 async def update_doanhthu_cuahang():
     #     chỉ chạy 1 lần trong ngày
-
-    return None
+    momo_api.lay_doanh_thu_tu_api()
 
 
 @app.get("/get_qrcode")
@@ -73,55 +76,93 @@ select FLOOR(390 + RAND() * 9999999) AS ma_gd FROM `giaodich` WHERE giaodich.id 
     result = db.execute(text(query)).fetchone()
     if result:
         ma_gd = int(result[0])
-
-        print("Mã giao dịch mới:", ma_gd)
     else:
         ma_gd = 6868
+
+    info_qrcode = libs.lay_doanh_thu_cua_hang_tu_file()
+    temp_dt = {'cua_hang': info_qrcode['cua_hang'],
+               'qr_code_img': info_qrcode['qr_code_img'], 'ma_giao_dich': ma_gd}
+    print("Mã giao dịch mới:", ma_gd)
     # cua_hang.tong_doanh_thu()
-    return {'ma_giao_dich': ma_gd}
+    return temp_dt
 
 
-@app.put("/giao_dich/{ma_giao_dich}")
-async def update_giaodich(ma_giao_dich: str, update_giaodich: GiaoDichUpdate, db: Session = Depends(get_db)):
-    print(ma_giao_dich)
-    try:
-        giao_dich = db.query(model.GiaoDich).filter(model.GiaoDich.id == ma_giao_dich).first()
-        if giao_dich is None:
-            return {'status_code': 404, 'status': "Không tìm thấy giao dịch"}
+# hàm check giao dịch bằng SĐT
+@app.get("/giao_dich/{sdt_khach}")
+async def read_item(sdt_khach: str, db: Annotated[Session, Depends(get_db)]):
+    giao_dich = db.query(model.GiaoDich).filter(
+        model.GiaoDich.sdt_momo_pay == sdt_khach).first()
+    if giao_dich is None:
+        raise HTTPException(
+            status_code=404, detail=f"{sdt_khach} chưa giao dịch lần nào")
 
-        for attr, value in update_giaodich.model_dump().items():
-            setattr(giao_dich, attr, value)
-        db.commit()
-        db.refresh(giao_dich)
-        return {'status_code': 200, "status": "Cập nhật thành công"}
-    except Exception as e:
-        # raise Exception(e)
-        return {'status_code': 404, 'status': 'Không tìm thấy giao dịch'}
-
+    return giao_dich
 
 # hàm lấy trạng thái của mã giao dịch
 @app.get("/giao_dich/{ma_giao_dich}")
 async def read_item(ma_giao_dich: str, db: Annotated[Session, Depends(get_db)]):
-    giao_dich = db.query(model.GiaoDich).filter(model.GiaoDich.id == ma_giao_dich).first()
+    giao_dich = db.query(model.GiaoDich).filter(
+        model.GiaoDich.id == ma_giao_dich).first()
     if giao_dich is None:
-        raise HTTPException(status_code=404, detail=f"{ma_giao_dich} khong ton tai")
+        raise HTTPException(
+            status_code=404, detail=f"{ma_giao_dich} khong ton tai")
 
-    return {"ma_giao_dich": giao_dich}
+    return giao_dich
 
 
+def check_and_update_data(ma_giao_dich: int, data_update, db: Session):
+
+    print(ma_giao_dich)
+
+    try:
+        giao_dich = db.query(model.GiaoDich).filter(
+            model.GiaoDich.id == ma_giao_dich).first()
+        if giao_dich is None:
+            return {'status_code': 404, 'status': "Không tìm thấy giao dịch"}
+
+        for attr, value in data_update.items():
+            setattr(giao_dich, attr, value)
+
+        db.commit()
+        db.refresh(giao_dich)
+        return {'status_code': 200, "status": "Cập nhật thành công"}
+    except SQLAlchemyError as e:
+        error = str(e.orig)
+        print(error)
+        return {'status_code': 500, 'status': 'Mã giao dịch không tồn tại'}
+    
 # hàm tạo giao dịch mới
-
 @app.post("/giaodich/", status_code=status.HTTP_201_CREATED)
 async def create_giao_dich(giaodich: GiaoDichBase, db: Annotated[Session, Depends(get_db)]):
     try:
+        # tạo giao dịch trên Database
+
         new_giaodich = model.GiaoDich(**giaodich.dict())
         db.add(new_giaodich)
         db.commit()
         db.refresh(new_giaodich)
+        import pdb
+        pdb.set_trace()
+        ketqua_xuly = libs.kiem_tra_ma_giao_dich(giaodich.dict())
+        data_update = ketqua_xuly[2]
+        if ketqua_xuly[1] is False:
+            check_and_update_data(ketqua_xuly[0],data_update,db)
+            
         return new_giaodich
+    
     except SQLAlchemyError as e:
+
         error = str(e.orig)
         print(error)
         db.rollback()  # Quay lại trạng thái trước khi commit
-        raise HTTPException(status_code=500, detail="Có lỗi trong câu lệnh MySQL")  # Xử lý lỗi
+        raise HTTPException(
+            status_code=500, detail="Có lỗi trong câu lệnh MySQL")  # Xử lý lỗi
 
+
+
+
+if __name__ == "__main__":
+    # lay_doanh_thu_tu_api()
+
+    momo_api.lay_doanh_thu_tu_api()
+    print(libs.lay_doanh_thu_cua_hang_tu_file())

@@ -1,0 +1,1 @@
+[{'cua_hang': 'me_kimi', 'doanh_thu': 10680000, 'qr_code_img': ''}]

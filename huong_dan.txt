@@ -1,3 +1,9 @@
 chạy server:
-uvicorn api:app --reload
+uvicorn api:app --port 1993 --reload
+
+venv\Scripts\activate.bat
+
+
+active trên môi trường ubuntu
+. venv/bin/activate
 
