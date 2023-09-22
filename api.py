@@ -1,20 +1,16 @@
-import pydantic
 from typing import Annotated
 from datetime import datetime
-from typing import Union
-import uuid as uuid_pkg
 
 from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
 from fastapi import Depends, FastAPI, HTTPException, status
-import cua_hang
 import momo_api
 import libs
 
 import database
 import model
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
 app = FastAPI()
 
@@ -59,7 +55,7 @@ async def read_root(db: Session = Depends(get_db)):
     return {"Hello": "world"}
 
 
-@app.get("/update_doanhthu")
+@app.get("/tonghop_doanhthu")
 async def update_doanhthu_cuahang():
     #     chỉ chạy 1 lần trong ngày
     momo_api.lay_doanh_thu_tu_api()
@@ -87,14 +83,14 @@ select FLOOR(390 + RAND() * 9999999) AS ma_gd FROM `giaodich` WHERE giaodich.id 
     return temp_dt
 
 
-# hàm check giao dịch bằng SĐT
-@app.get("/giao_dich/{sdt_khach}")
-async def read_item(sdt_khach: str, db: Annotated[Session, Depends(get_db)]):
-    giao_dich = db.query(model.GiaoDich).filter(
-        model.GiaoDich.sdt_momo_pay == sdt_khach).first()
-    if giao_dich is None:
-        raise HTTPException(
-            status_code=404, detail=f"{sdt_khach} chưa giao dịch lần nào")
+# # hàm check giao dịch bằng SĐT
+# @app.get("/giao_dich/{sdt_khach}")
+# async def read_item(sdt_khach: str, db: Annotated[Session, Depends(get_db)]):
+#     giao_dich = db.query(model.GiaoDich).filter(
+#         model.GiaoDich.sdt_momo_pay == sdt_khach).first()
+#     if giao_dich is None:
+#         raise HTTPException(
+#             status_code=404, detail=f"{sdt_khach} chưa giao dịch lần nào")
 
     return giao_dich
 
@@ -110,9 +106,8 @@ async def read_item(ma_giao_dich: str, db: Annotated[Session, Depends(get_db)]):
     return giao_dich
 
 
-def check_and_update_data(ma_giao_dich: int, data_update, db: Session):
+def update_data(ma_giao_dich: int, data_update, db: Session):
 
-    print(ma_giao_dich)
 
     try:
         giao_dich = db.query(model.GiaoDich).filter(
@@ -141,12 +136,11 @@ async def create_giao_dich(giaodich: GiaoDichBase, db: Annotated[Session, Depend
         db.add(new_giaodich)
         db.commit()
         db.refresh(new_giaodich)
-        import pdb
-        pdb.set_trace()
+
         ketqua_xuly = libs.kiem_tra_ma_giao_dich(giaodich.dict())
         data_update = ketqua_xuly[2]
         if ketqua_xuly[1] is False:
-            check_and_update_data(ketqua_xuly[0],data_update,db)
+            update_data(ketqua_xuly[0],data_update,db)
             
         return new_giaodich
     
