@@ -13,22 +13,21 @@ FORMAT  = "%(asctime)-15s%(message)s"
 logging.basicConfig(filemode = "w", filename=f'log_ruttien.log', format = FORMAT, level=logging.DEBUG)
 
 def socket_client(param):
+    import socket
 
 
-    # momo_api.lay_doanh_thu_tu_api()
-    # print(libs.lay_doanh_thu_cua_hang_tu_file())
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((HOST, PORT))
+    connectionSuccessful = False
+    HOST = "42.96.33.21"
+    PORT = 21688
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    while not connectionSuccessful:
+        try:
+            s.connect((HOST, PORT))    # Note: if execution gets here before the server starts up, this line will cause an error, hence the try-except
+            print('socket connected')
+            connectionSuccessful = True
             s.sendall(param.encode("utf-8"))
-            data = s.recv(1024)
-            import pdb
-            pdb.set_trace()
-            print(b"Received " + data)
-
-    except Exception as e:
-        print(e)
-        send_telegram("server disconnect")
+        except:
+            send_telegram("server disconnect")
 
     
 def client_received(s):
@@ -54,7 +53,7 @@ def kiem_tra_ma_giao_dich(data,phi_giao_dich):
     if (ma_giao_dich_momo is None) or check_ma_gd_cu:
 
         logging.debug(str(id_web) + "mã giao dịch không hợp lệ")
-
+        send_telegram(f"{id_web} cố tình phá hoại...")
         data_return = {
             "trang_thai": "cheat_image_duplicate",
             "so_tien": 0,

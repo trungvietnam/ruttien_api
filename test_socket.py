@@ -34,18 +34,7 @@ if __name__ == "__main__":
     # import socket
 
     param = "function=rut_tien&stk_nguoi_nhan=trungdc&ngan_hang=vcb&so_tien=1100"
-    connectionSuccessful = False
-    HOST = "42.96.33.21"
-    PORT = 21688
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    while not connectionSuccessful:
-        try:
-            s.connect((HOST, PORT))    # Note: if execution gets here before the server starts up, this line will cause an error, hence the try-except
-            print('socket connected')
-            connectionSuccessful = True
-            s.sendall(param.encode("utf-8"))
-        except:
-            libs.send_telegram("server disconnect")
+
     
     
         libs.client_received(s)

@@ -1,4 +1,5 @@
 venv/
 trung/
 giao_dich/
-__pycache__/
+__pycache__/*
+__pycache__/libs.cpython-39.pyc
