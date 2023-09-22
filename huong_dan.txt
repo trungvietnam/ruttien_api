@@ -7,3 +7,4 @@ venv\Scripts\activate.bat
 active trên môi trường ubuntu
 . venv/bin/activate
 
+ServerIP: 42.96.33.21:21688

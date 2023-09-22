@@ -44,6 +44,7 @@ class GiaoDichBase(BaseModel):
     # ma_giao_dich: str
     ngay_gd: datetime
     stk_ngan_hang: str
+    ngan_hang: str
     ma_cuahang: str
     bang_chung_img: str
     trang_thai: str = "pending"
@@ -58,7 +59,7 @@ async def read_root(db: Session = Depends(get_db)):
 @app.get("/tonghop_doanhthu")
 async def update_doanhthu_cuahang():
     #     chỉ chạy 1 lần trong ngày
-    momo_api.lay_doanh_thu_tu_api()
+   return momo_api.lay_doanh_thu_tu_api()
 
 
 @app.get("/get_qrcode")
@@ -83,16 +84,6 @@ select FLOOR(390 + RAND() * 9999999) AS ma_gd FROM `giaodich` WHERE giaodich.id 
     return temp_dt
 
 
-# # hàm check giao dịch bằng SĐT
-# @app.get("/giao_dich/{sdt_khach}")
-# async def read_item(sdt_khach: str, db: Annotated[Session, Depends(get_db)]):
-#     giao_dich = db.query(model.GiaoDich).filter(
-#         model.GiaoDich.sdt_momo_pay == sdt_khach).first()
-#     if giao_dich is None:
-#         raise HTTPException(
-#             status_code=404, detail=f"{sdt_khach} chưa giao dịch lần nào")
-
-    return giao_dich
 
 # hàm lấy trạng thái của mã giao dịch
 @app.get("/giao_dich/{ma_giao_dich}")
@@ -129,20 +120,58 @@ def update_data(ma_giao_dich: int, data_update, db: Session):
 # hàm tạo giao dịch mới
 @app.post("/giaodich/", status_code=status.HTTP_201_CREATED)
 async def create_giao_dich(giaodich: GiaoDichBase, db: Annotated[Session, Depends(get_db)]):
-    try:
-        # tạo giao dịch trên Database
+    phi_giao_dich = 0
 
+    try:
+        # import pdb
+        # pdb.set_trace()
+
+        giao_dich_moi = giaodich.dict()
+
+        # kiểm tra sđt khách đã từng giao dịch chưa?
+        sdt_khach =giaodich.dict()['sdt_momo_pay']
+        check_sdt_khach = db.query(model.GiaoDich).filter(
+            model.GiaoDich.sdt_momo_pay == sdt_khach).count()
+        
+        # Nếu khách giao dịch rồi, không free rút 100K nữa, sẽ tính phí 6%
+        if check_sdt_khach != 0 :
+            phi_giao_dich = 0
+        else:
+            phi_giao_dich = 6
+        # tạo giao dịch trên Database
         new_giaodich = model.GiaoDich(**giaodich.dict())
         db.add(new_giaodich)
         db.commit()
         db.refresh(new_giaodich)
 
-        ketqua_xuly = libs.kiem_tra_ma_giao_dich(giaodich.dict())
-        data_update = ketqua_xuly[2]
+        # đề phòng trường hợp có xử cố bất ngờ, cho nên sẽ tạo DB trực tiếp cho từng giao dịch rồi update giao dịch đó
+        ketqua_xuly = libs.kiem_tra_ma_giao_dich(giao_dich_moi,phi_giao_dich)
+
+        
+
+
         if ketqua_xuly[1] is False:
-            update_data(ketqua_xuly[0],data_update,db)
-            
-        return new_giaodich
+            data_return = ketqua_xuly[2]
+            update_data(ketqua_xuly[0],data_return,db)
+            return_data  = {"status": "image_cheating", "detail":data_return}
+        elif ketqua_xuly[1] is True:
+            data_return = ketqua_xuly[3]
+            so_tien = data_return['so_tien']
+            update_data(ketqua_xuly[0],data_return,db)
+            ma_giao_dich_momo= data_return['ma_giao_dich']
+            return_data  = {"status": "qr_ok", "detail":data_return}
+            # yêu cầu banking cho
+            try:
+                # send_server(id_web, data_query, "POST")
+                param = f"function=rut_tien&stk_nguoi_nhan={giao_dich_moi['stk_ngan_hang']}&ngan_hang={giao_dich_moi['ngan_hang']}&so_tien={so_tien}"
+                libs.socket_client(param)
+
+                libs.write_file("ma_giao_dich_momo.txt",ma_giao_dich_momo)
+            except:
+                libs.send_telegram(f"\n SERVER CHUYỂN TIỀN KHÔNG HOẠT ĐỘNG\n Mã giao dịch đang tạm treo: {ketqua_xuly[0]}")
+
+        
+        return return_data
     
     except SQLAlchemyError as e:
 
@@ -155,8 +184,9 @@ async def create_giao_dich(giaodich: GiaoDichBase, db: Annotated[Session, Depend
 
 
 
-if __name__ == "__main__":
-    # lay_doanh_thu_tu_api()
+# if __name__ == "__main__":
+    # import uvicorn
 
-    momo_api.lay_doanh_thu_tu_api()
-    print(libs.lay_doanh_thu_cua_hang_tu_file())
+    # uvicorn.run(app, host="0.0.0.0", port=1993, log_level="info")
+
+#     # lay_doanh_thu_tu_api()
